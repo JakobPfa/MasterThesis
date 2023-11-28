@@ -197,7 +197,7 @@ plt.show()
 ##################################################
 
 
-fig1=plt.figure(figsize=(9.,5.))
+fig1=plt.figure(figsize=(1.25*9.,1.25*5.))
 fsize=10.
 whatisup=freeboard+snow[:,0]
 ymin=(depth.min()+freeboard.min())*1.03

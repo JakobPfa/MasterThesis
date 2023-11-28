@@ -22,6 +22,7 @@ c_l = 3400
 config = {}
 path_config = r'../../../Run_specifics/'
 path_input = '../../../input/'
+#path_input = '../../../forcings/input_MOSAiC_SYI/'
 
 # **********************************************************************************************************************
 # Set description of run
@@ -113,6 +114,12 @@ const_inputs = {'T_bottom': -1.8, 'S_bu_bottom': 34,
 for input in list(const_inputs.keys()):
     data = np.ones(int(config['length_input'])) * const_inputs[input]
     np.savetxt(path_input + input + '.txt', data)
+    
+
+# use precip_l as snow prescribtion    
+#precip_s = np.loadtxt('../../../forcings/input_MOSAiC_SYI/precip_l.txt')
+#np.savetxt(path_input + '/precip_s.txt', precip_s)
+
 
 # **********************************************************************************************************************
 # setting the initial values of the top and only layer - not needed if initial ice properties are given - set to zero
