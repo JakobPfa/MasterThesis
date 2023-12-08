@@ -1,0 +1,32 @@
+ ################  Description  ###############
+ Testcase_MOSAiC
+ ##############  Basic settings  ##############
+dt                       20.000
+thick_0                   0.020
+time_out              86400.000
+time_total         55468800.000
+fl_q_bottom               1.000
+T_bottom                 -1.800
+S_bu_bottom              34.000
+N_top                  20
+N_middle               40
+N_bottom               20
+Nlayer                 80
+ ##################  Flags  ###################
+boundflux_flag          2
+albedo_flag             2
+grav_flag               2
+flush_flag              5
+flood_flag              2
+grav_heat_flag          2
+flush_heat_flag         2
+harmonic_flag           2
+k_snow_flush              0.750
+prescribe_flag          1
+salt_flag               1
+turb_flag               2
+bottom_flag             1
+tank_flag               1
+precip_flag             1
+bgc_flag                1
+N_bgc                   2
