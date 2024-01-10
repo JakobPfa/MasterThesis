@@ -16,6 +16,7 @@ import matplotlib
 import os
 import json
 import pandas as pd
+import datetime
 
 # Warnings:
 # Contours are interpolated from the middle of each layer. This is most visible in thick layers, and in the snow layer where the contour lines only extend to the the middle.
@@ -40,9 +41,9 @@ path_no_snow = '/home/jakobp/MasterThesis/SAMSIM/samsim3.0-master/runs/precip/ru
 paths = [path_snow, path_double_snow, path_half_snow, path_no_snow]
 runs = ['real','double','half', 'no']
 
-dat = {}
-for run, path in zip(runs,paths):
-    dat[run] = {var: np.loadtxt(path + '/dat_'+var+'.dat') for var in ['T', 'S_bu' ,'psi_l', 'psi_s', 'thick', 'freeboard', 'snow', 'vital_signs']}
+#dat = {}
+#for run, path in zip(runs,paths):
+#    dat[run] = {var: np.loadtxt(path + '/dat_'+var+'.dat') for var in ['T', 'S_bu' ,'psi_l', 'psi_s', 'thick', 'freeboard', 'snow', 'vital_signs']}
 
 
 #%% define function to load data and build Xgrid 
@@ -143,7 +144,7 @@ runs = ['k_0_005', 'k_0_01','k_0_05','k_0_1','k_0_175','k_0_25','k_0_5', 'k_1_0'
 plot_labels = {'k_0_005':'k_snow = 0.005', 'k_0_01':'k_snow = 0.01', 'k_0_05':'k_snow = 0.05', 'k_0_1': 'k_snow = 0.1', 'k_0_175': 'k_snow = 0.175', 
                'k_0_25': 'k_snow = 0.25', 'k_0_5': 'k_snow = 0.5', 'k_1_0': 'k_snow = 1.0', 'k_1_5': 'k_snow = 1.5'}
 
-
+dat = {}
 for run in runs:
     dat[run] = load_data_grid(paths[run])
 
@@ -153,6 +154,7 @@ outputpath = 'output'
 S          = numpy.loadtxt(path_snow + "/dat_S_bu.dat")
 T          = numpy.loadtxt(path_snow + "/dat_T.dat")
 psi_l      = numpy.loadtxt(path_snow + "/dat_psi_l.dat")  #volume fraction of liquid
+psi_s      = numpy.loadtxt(path_snow + "/dat_psi_s.dat")
 thick      = numpy.loadtxt(path_snow + "/dat_thick.dat")
 freeboard  = numpy.loadtxt(path_snow + "/dat_freeboard.dat")
 snow       = numpy.loadtxt(path_snow + "/dat_snow.dat")
@@ -207,6 +209,8 @@ T_snow     = snow[:,1]
 T_snow     = T_snow.reshape(xlen,1)
 psi_l_snow = snow[:,2]
 psi_l_snow = psi_l_snow.reshape(xlen,1)
+psi_s_snow = snow[:,3]
+psi_s_snow = psi_s_snow.reshape(xlen,1)
 thick_snow = snow[:,0]
 thick_snow = thick_snow.reshape(xlen,1)
 S_snow     = T_snow*0.0
@@ -216,6 +220,7 @@ S_snow     = T_snow*0.0
 thick = numpy.hstack((thick_snow,thick))
 T     = numpy.hstack((T_snow,T))
 psi_l = numpy.hstack((psi_l_snow,psi_l))
+psi_s = numpy.hstack((psi_s_snow,psi_s))
 S     = numpy.hstack((S_snow,S))
 
 #Restructuring the data so it can be ploted by pcolor
@@ -246,6 +251,13 @@ Xgrid = numpy.column_stack((Xgrid,Xgrid[:,-1]))
 depth = numpy.vstack((depth, depth[-1,:]))
 Xgrid = numpy.vstack((Xgrid, Xgrid[-1,:]))
 
+
+# resolve bottom layer with psi_s_min:
+#psi_s_min = 0.05
+#Nactive = np.sum(thick != 0., axis = 1) - 1
+#for i in np.arange(Nactive.shape[0]):
+#    thick[i,Nactive[i]] = thick[i,Nactive[i]] * psi_s[i,Nactive[i]] /psi_s_min
+#    depth[i,Nactive[i]] = depth[i,Nactive[i]] * psi_s[i,Nactive[i]] /psi_s_min
 
 #%% Custom colormaps
 #Liquid fraction
@@ -430,16 +442,19 @@ plt.show()
 #%% comparing salinity profiles
 
 # take time of maximal thickness:
-t_thick_max = {}
+t_thick_max = {}    
+date_max_thick = {}
 for run in runs:
     t_thick_max[run] = np.argmax(dat[run]['vital_signs'][:,3])
-
+    print('time of maximal thickness for ', plot_labels[run], ': ', 
+          datetime.date(year = 2020, month = 9, day = 1) + datetime.timedelta(days=int(t_thick_max[run])))
+    date_max_thick[run] = datetime.date(year = 2020, month = 9, day = 1) + datetime.timedelta(days=int(t_thick_max[run]))
 
     
 for run in runs:    
     plt.plot(dat[run]['S'][t_thick_max[run],:],
              dat[run]['depth'][t_thick_max[run],1:]/dat[run]['vital_signs'][t_thick_max[run],3], 
-             label = plot_labels[run])
+             label = plot_labels[run] + ' at ' + str(date_max_thick[run]))
 plt.legend()
 plt.xlabel('Salinity [g/kg]')
 plt.ylabel('depth realtive to maximal ice thickness')
@@ -469,7 +484,18 @@ plt.show()
 
 #%% plot 
 
-
+for run in runs:
+    plt.pcolor(dat[run]['Xgrid'], dat[run]['depth'], dat[run]['S'], cmap = S_cmap)
+    plt.plot(dat[run]['depth'][:,0], color = 'darkgreen')
+    plt.plot(dat[run]['depth'][:,1], color = 'darkgreen')
+    c1 = plt.colorbar(pad=0.01)
+    c1.set_label(r'S [g/kg]')
+    plt.axis([dat[run]['Xgrid'].min(), dat[run]['Xgrid'].max(), 
+              dat[run]['depth'].min()*1.03, dat[run]['depth'].max()*1.05])
+    plt.xlabel('time [days]')
+    plt.ylabel('depth [m]')
+    plt.title('Salinity profile for ' + plot_labels[run])
+    plt.show()
 
 
 

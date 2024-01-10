@@ -1,3 +1,4 @@
+
 #Standard plot script to plot profiles of three chosen variables in accordance with the finite volume nature of SAMSIM. 
 #Steps:
 #2. Set dx to the right time step used in the model and in the time unit you want (e.g. in days or years
