@@ -618,9 +618,9 @@ CONTAINS
     REAL(wp),  INTENT(in)    :: m_snow, thick_snow
     REAL(wp)                 :: k_snow 
 
-    !k_snow = c0 + c1*m_snow/thick_snow + c2*(m_snow/thick_snow)**2._wp
+    k_snow = c0 + c1*m_snow/thick_snow + c2*(m_snow/thick_snow)**2._wp
     !k_snow = k_snow+0.15 !WARNING
-    k_snow = 0.2_wp
+    !k_snow = 0.2_wp
 
   END FUNCTION func_k_snow
 
