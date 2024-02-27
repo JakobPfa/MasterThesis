@@ -5,9 +5,13 @@ import numpy as np
 import os
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
-##### function to load data and simulatiously construct Xgrid and depth to plot adaptable SAMSIM grid #####
+#%% load data
+#function to load data and simulatiously construct Xgrid and depth to plot adaptable SAMSIM grid #####
 # requires path of run, with output folder located in said path 
 # returns dictionary to put into bigger dictionary of runs
 def load_data_grid(run_path, free_flag):
@@ -99,3 +103,191 @@ def load_data_grid(run_path, free_flag):
                  'Xgrid': Xgrid, 'depth': depth, 'vital_signs': vital_signs, 'T2m_T_top': T2m_T_top}
     
     return data_grid
+
+
+#%% Mean bulk Salinity:
+# calculates the mean bulk salinity with a weighted boundary layer (psi_s_bound/psi_s_min)
+# requires data dictionary with run names as keys
+def weighted_mean_bulk_salinity(dat, runs):
+    psi_s_min = 0.05
+    runs = dat.keys()
+    Nactive, layer_weight, S_bu_mean = {},{},{} 
+    for run in runs:
+        layer_weight[run] = dat[run]['thick'][:,1:].copy()
+        Nactive[run] = np.sum(dat[run]['thick'][:,1:] != 0., axis = 1) - 1 # -1 to account for python indexing
+        for i in np.arange(Nactive[run].shape[0]):
+            layer_weight[run][i,Nactive[run][i]] = (dat[run]['psi_s'][i,Nactive[run][i]+1] / psi_s_min) * dat[run]['thick'][i,Nactive[run][i]+1] #+1 to account for first layer being snow
+        S_bu_mean[run] = np.sum(dat[run]['S'][:,1:] * layer_weight[run], axis = 1) / dat[run]['vital_signs'][:,3]#np.sum(layer_weight[run][i,1:])#dat[run]['vital_signs'][:,3]
+    return S_bu_mean
+
+
+#%% shed salt:
+# calculate the mass of shed salt in the freezing process
+#
+def released_salt_mass(dat, runs):
+    rho_s = 920. 
+    rho_l = 1028.
+    runs = dat.keys()
+    m, S_bu_diff, m_salt_timestep, m_salt = {},{},{},{}              # mass of layer per area [kg/m²]
+    for run in runs:
+        m[run]              = ((rho_s * dat[run]['psi_s'] + rho_l * dat[run]['psi_l']) * dat[run]['thick'])#[:t_thick_max[run],:]
+        S_bu_diff[run]      = np.full_like(dat[run]['S'], 34.) - dat[run]['S']
+        m_salt_timestep[run]         = np.sum(m[run] * S_bu_diff[run], axis = 1)
+        m_salt[run]         = np.diff(m_salt_timestep[run])
+        m_salt[run]         = np.cumsum(m_salt[run])/1000
+    return m_salt
+
+
+#%% plotting functions:
+#ice thickness plots with and without colorbar for k
+
+def plot_ice_thickness_kcolorbar(dat, runs, description):
+    colormap = plt.cm.viridis
+    norm = matplotlib.colors.Normalize(vmin = 0.1, vmax = 2.)
+    sm = matplotlib.cm.ScalarMappable(norm = norm, cmap = colormap)
+    fig, ax = plt.subplots(figsize = (10,6))
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    for run in runs: ax.plot(dat[run]['vital_signs'][:,3],# label = plot_labels[run],
+                                            color = colormap(norm(dat[run]['k'])))
+    ax.invert_yaxis()
+    ax.set_xlabel('time [day]')
+    ax.set_ylabel('total ice thickness [m]')
+    ax.set_title('Total Ice Thickness for ' + description)
+    plt.colorbar(mappable = sm, cax = cax, label = 'snow heat conductivity [Wm⁻¹K⁻¹]')
+    return fig
+
+
+def plot_ice_thickness(dat, runs, description):
+    fig, ax = plt.subplots(figsize = (10,6))
+    for run in runs:
+        ax.plot(dat[run]['vital_signs'][:,3], label = dat[run]['label'])
+    ax.invert_yaxis()
+    ax.legend()
+    ax.set_xlabel('time [day]')
+    ax.set_ylabel('total ice thickness [m]')
+    ax.set_title('Total Ice Thickness for ' + description)
+    return fig
+    
+    
+# mean bulk salinity plots:
+def plot_sal_vs_t_kcolorbar(dat, mean_salinity, runs, description):
+    colormap = plt.cm.viridis
+    norm = matplotlib.colors.Normalize(vmin = 0.1, vmax = 2.)
+    sm = matplotlib.cm.ScalarMappable(norm = norm, cmap = colormap)
+    t_thick_max = {}
+    for run in runs:
+        t_thick_max[run] = np.argmax(dat[run]['vital_signs'][:,3])
+        
+    fig, ax = plt.subplots(figsize = (10,6))
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    for run in runs: ax.plot(mean_salinity[run][:t_thick_max[run],],
+                                  color = colormap(norm(dat[run]['k'])))
+    ax.set_xlabel('time [days]')
+    ax.set_ylabel('mean salinity [psu]')
+    ax.set_title('Mean bulk salinities for ' + description)
+    plt.colorbar(mappable = sm, cax = cax, label = 'snow heat conductivity [Wm⁻¹K⁻¹]')
+    return fig
+    
+    
+def plot_sal_vs_t(dat, mean_salinity, runs, description):
+    t_thick_max = {}
+    for run in runs:
+        t_thick_max[run] = np.argmax(dat[run]['vital_signs'][:,3])
+        
+    fig, ax = plt.subplots(figsize = (10,6))
+    for run in runs: ax.plot(mean_salinity[run][:t_thick_max[run],], label = dat[run]['label'])
+    ax.legend()
+    ax.set_xlabel('time [days]')
+    ax.set_ylabel('mean salinity [psu]')
+    ax.set_title('Mean bulk salinities for ' + description)
+
+
+#mean bulk salinities against ice thickness:
+def plot_sal_vs_thickness_kcolobar(dat, mean_salinity, runs, description):
+    t_thick_max = {}
+    for run in runs:
+        t_thick_max[run] = np.argmax(dat[run]['vital_signs'][:,3])
+    
+    colormap = plt.cm.viridis
+    norm = matplotlib.colors.Normalize(vmin = 0.1, vmax = 2.)
+    sm = matplotlib.cm.ScalarMappable(norm = norm, cmap = colormap)
+    
+    fig, ax = plt.subplots(figsize = (10,6))                                          
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    for run in runs: 
+        ax.plot(dat[run]['vital_signs'][:t_thick_max[run],3],
+                 mean_salinity[run][:t_thick_max[run],],# label = plot_labels[run],
+                 color = colormap(norm(dat[run]['k'])))
+    ax.set_xlabel('ice thickness [m]')
+    ax.set_ylabel('mean bulk salinity [g/kg]')
+    ax.set_title('Mean bulk salinites for ' + description)
+    plt.colorbar(mappable = sm, cax = cax, label = 'snow heat conductivity [Wm⁻¹K⁻¹]')
+    return fig
+
+def plot_sal_vs_thickness(dat, mean_salinity, runs, description, t_plot = 'max'):
+    if t_plot == 'max':
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = np.argmax(dat[run]['vital_signs'][:,3])
+    else:
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = t_plot
+    
+    fig, ax = plt.subplots(figsize = (10,6))                                          
+    for run in runs: 
+        ax.plot(dat[run]['vital_signs'][:T_plot[run],3],
+                 mean_salinity[run][:T_plot[run],], label = dat[run]['label'])
+    ax.legend()
+    ax.set_xlabel('ice thickness [m]')
+    ax.set_ylabel('mean bulk salinity [g/kg]')
+    ax.set_title('Mean bulk salinites for ' + description)
+    return fig, ax
+
+
+def plot_absolute_mass_salt_vs_t(dat, salt, runs, description, t_plot = 'max'):
+    if t_plot == 'max':
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = np.argmax(dat[run]['vital_signs'][:,3])
+    else:
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = t_plot
+            
+    fig, ax = plt.subplots(figsize = (10,6))
+    for run in runs:
+        ax.plot(salt[run][:T_plot[run],], label = dat[run]['label'])
+    ax.legend()
+    ax.set_xlabel('time [days]')
+    ax.set_ylabel('total expelled mass of salt [kg]')
+    ax.set_title('expelled mass of salt for ' + description)
+    return fig, ax
+
+def plot_absolute_mass_salt_vs_thickness(dat, salt, runs, description, t_plot = 'max'):
+    if t_plot == 'max':
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = np.argmax(dat[run]['vital_signs'][:,3])
+    else:
+        T_plot = {}
+        for run in runs:
+            T_plot[run] = t_plot
+            
+    fig, ax = plt.subplots(figsize = (10,6))
+    for run in runs:
+        ax.plot(dat[run]['vital_signs'][:T_plot[run],3],
+                salt[run][:T_plot[run],], label = dat[run]['label'])
+    ax.legend()
+    ax.set_xlabel('ice thickness [m]')
+    ax.set_ylabel('total expelled mass of salt [kg]')
+    ax.set_title('expelled mass of salt for ' + description)
+    return fig, ax
+
+
+
+
+

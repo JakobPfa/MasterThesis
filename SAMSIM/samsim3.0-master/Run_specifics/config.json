@@ -12,7 +12,7 @@
     "N_top": 20,
     "N_bottom": 20,
     "N_middle": 40,
-    "boundflux_flag": 2,
+    "boundflux_flag": 1,
     "albedo_flag": 2,
     "grav_heat_flag": 2,
     "flush_heat_flag": 2,

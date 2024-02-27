@@ -1,0 +1,4 @@
+ In layer           1 getT does not converge for H,S_bu =   -583409.13939693873        15.840485948821943     
+ Such problems have occured when Temperatures are well below -100C or have bad intial values
+ Negative salinity values or very very low Salinity can also be a problem.
+ Often the problem can be traced to a too big time step.
