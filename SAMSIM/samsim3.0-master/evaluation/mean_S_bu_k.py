@@ -777,7 +777,7 @@ for i in input_data:
 
 y_labels = ['longwave heatflux [W/m²]', 'shortwave heatflux [W/m²]', 'sensible heatflux [W/m²]', 
             'latent heatflux [W/m²]', 'temperature [°C]', 'precipitation [m]']
-'''
+
 j = 0
 for i in input_data: 
     plt.plot(dat_input[i])
@@ -786,7 +786,7 @@ for i in input_data:
     plt.title(i)
     plt.show()
     j += 1
-'''
+
 
 
 time_input = np.linspace(0,len(dat_input['T2m']), len(dat_input['T2m']))
